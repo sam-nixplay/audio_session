@@ -33,6 +33,8 @@ flutter:
         pluginClass: AudioSessionPlugin
       macos:
         pluginClass: AudioSessionPlugin
+      tvos:
+        pluginClass: AudioSessionPlugin  
       web:
         pluginClass: AudioSessionWeb
         fileName: audio_session_web.dart

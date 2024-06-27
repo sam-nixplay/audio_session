@@ -1,15 +1,11 @@
 #import "AudioSessionPlugin.h"
-#if !TARGET_OS_TV
 #import "DarwinAudioSession.h"
-#endif
 
 static NSObject *configuration = nil;
 static NSHashTable<AudioSessionPlugin *> *plugins = nil;
 
 @implementation AudioSessionPlugin {
-#if !TARGET_OS_TV
     DarwinAudioSession *_darwinAudioSession;
-#endif
     FlutterMethodChannel *_channel;
 }
 
@@ -29,12 +25,7 @@ static NSHashTable<AudioSessionPlugin *> *plugins = nil;
               binaryMessenger:[registrar messenger]];
     [registrar addMethodCallDelegate:self channel:_channel];
 
-#if !TARGET_OS_TV
     _darwinAudioSession = [[DarwinAudioSession alloc] initWithRegistrar:registrar];
-#else
-    // Set up any tvOS-specific audio session handling here, if needed
-#endif
-
     return self;
 }
 
@@ -53,17 +44,7 @@ static NSHashTable<AudioSessionPlugin *> *plugins = nil;
     } else if ([@"getConfiguration" isEqualToString:call.method]) {
         result(configuration);
     } else {
-#if !TARGET_OS_TV
-        if ([@"someMethodSpecificToDarwinAudioSession" isEqualToString:call.method]) {
-            // Call the specific method on DarwinAudioSession
-            [_darwinAudioSession someMethodSpecificToDarwinAudioSession:args result:result];
-        } else {
-            result(FlutterMethodNotImplemented);
-        }
-#else
-        // Handle tvOS-specific audio session methods here, if any
         result(FlutterMethodNotImplemented);
-#endif
     }
 }
 
