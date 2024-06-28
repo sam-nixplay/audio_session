@@ -10,7 +10,7 @@
         _registrar = registrar;
         _channel = [FlutterMethodChannel
             methodChannelWithName:@"com.ryanheise.av_audio_session"
-                  binaryMessenger:[registrar messenger]];
+              binaryMessenger:[registrar messenger]];
         __weak typeof(self) weakSelf = self;
         [_channel setMethodCallHandler:^(FlutterMethodCall* call, FlutterResult result) {
             [weakSelf handleMethodCall:call result:result];
@@ -30,137 +30,83 @@
         [self setCategory:args result:result];
     } else if ([@"getAvailableCategories" isEqualToString:call.method]) {
         [self getAvailableCategories:args result:result];
+    } else if ([@"getCategoryOptions" isEqualToString:call.method]) {
+        [self getCategoryOptions:args result:result];
     } else if ([@"getMode" isEqualToString:call.method]) {
         [self getMode:args result:result];
     } else if ([@"setMode" isEqualToString:call.method]) {
         [self setMode:args result:result];
+    } else if ([@"getAvailableModes" isEqualToString:call.method]) {
+        [self getAvailableModes:args result:result];
     } else if ([@"setActive" isEqualToString:call.method]) {
         [self setActive:args result:result];
+    } else if ([@"isOtherAudioPlaying" isEqualToString:call.method]) {
+        [self isOtherAudioPlaying:args result:result];
     } else if ([@"getCurrentRoute" isEqualToString:call.method]) {
         [self getCurrentRoute:args result:result];
     } else if ([@"getOutputLatency" isEqualToString:call.method]) {
         [self getOutputLatency:args result:result];
-    } else {
+    }
+#if TARGET_OS_IOS
+    else if ([@"getRouteSharingPolicy" isEqualToString:call.method]) {
+        [self getRouteSharingPolicy:args result:result];
+    } else if ([@"getSecondaryAudioShouldBeSilencedHint" isEqualToString:call.method]) {
+        [self getSecondaryAudioShouldBeSilencedHint:args result:result];
+    } else if ([@"getAllowHapticsAndSystemSoundsDuringRecording" isEqualToString:call.method]) {
+        [self getAllowHapticsAndSystemSoundsDuringRecording:args result:result];
+    } else if ([@"setAllowHapticsAndSystemSoundsDuringRecording" isEqualToString:call.method]) {
+        [self setAllowHapticsAndSystemSoundsDuringRecording:args result:result];
+    } else if ([@"getPromptStyle" isEqualToString:call.method]) {
+        [self getPromptStyle:args result:result];
+    } else if ([@"overrideOutputAudioPort" isEqualToString:call.method]) {
+        [self overrideOutputAudioPort:args result:result];
+    } else if ([@"setPreferredInput" isEqualToString:call.method]) {
+        [self setPreferredInput:args result:result];
+    } else if ([@"getAvailableInputs" isEqualToString:call.method]) {
+        [self getAvailableInputs:args result:result];
+    } else if ([@"getInputLatency" isEqualToString:call.method]) {
+        [self getInputLatency:args result:result];
+    } else if ([@"getRecordPermission" isEqualToString:call.method]) {
+        [self getRecordPermission:args result:result];
+    } else if ([@"requestRecordPermission" isEqualToString:call.method]) {
+        [self requestRecordPermission:args result:result];
+    }
+#endif
+    else {
         result(FlutterMethodNotImplemented);
     }
 }
 
-- (void)getCategory:(NSArray *)args result:(FlutterResult)result {
-    AVAudioSessionCategory category = [[AVAudioSession sharedInstance] category];
-    result([self categoryToFlutter:category]);
-}
+// Implement shared methods here
 
-- (void)setCategory:(NSArray *)args result:(FlutterResult)result {
-    NSNumber *categoryIndex = args[0];
-    NSError *error = nil;
-    BOOL success = [[AVAudioSession sharedInstance] setCategory:[self flutterToCategory:categoryIndex] error:&error];
-    if (error) {
-        [self sendError:error result:result];
-    } else {
-        result(@(success));
-    }
-}
-
-- (void)getAvailableCategories:(NSArray *)args result:(FlutterResult)result {
-    result(@[
-        @(AVAudioSessionCategoryAmbient),
-        @(AVAudioSessionCategoryPlayback)
-    ]);
-}
-
-- (void)getMode:(NSArray *)args result:(FlutterResult)result {
-    AVAudioSessionMode mode = [[AVAudioSession sharedInstance] mode];
-    result([self modeToFlutter:mode]);
-}
-
-- (void)setMode:(NSArray *)args result:(FlutterResult)result {
-    NSNumber *modeIndex = args[0];
-    NSError *error = nil;
-    BOOL success = [[AVAudioSession sharedInstance] setMode:[self flutterToMode:modeIndex] error:&error];
-    if (error) {
-        [self sendError:error result:result];
-    } else {
-        result(@(success));
-    }
-}
-
-- (void)setActive:(NSArray *)args result:(FlutterResult)result {
-    BOOL active = [args[0] boolValue];
-    NSError *error = nil;
-    BOOL success = [[AVAudioSession sharedInstance] setActive:active error:&error];
-    if (error) {
-        [self sendError:error result:result];
-    } else {
-        result(@(success));
-    }
-}
-
-- (void)getCurrentRoute:(NSArray *)args result:(FlutterResult)result {
-    AVAudioSessionRouteDescription *route = [[AVAudioSession sharedInstance] currentRoute];
-    NSMutableDictionary *routeInfo = [NSMutableDictionary dictionary];
-    routeInfo[@"outputs"] = [self describePortList:route.outputs];
-    result(routeInfo);
-}
-
-- (void)getOutputLatency:(NSArray *)args result:(FlutterResult)result {
-    NSTimeInterval latency = [[AVAudioSession sharedInstance] outputLatency];
-    result(@(latency * 1000000)); // Convert to microseconds
-}
+#if TARGET_OS_IOS
+// Implement iOS-specific methods here
+#endif
 
 - (AVAudioSessionCategory)flutterToCategory:(NSNumber *)categoryIndex {
     switch (categoryIndex.integerValue) {
         case 0: return AVAudioSessionCategoryAmbient;
+        case 1: return AVAudioSessionCategorySoloAmbient;
         case 2: return AVAudioSessionCategoryPlayback;
+        #if TARGET_OS_IOS
+        case 3: return AVAudioSessionCategoryRecord;
+        case 4: return AVAudioSessionCategoryPlayAndRecord;
+        #endif
+        case 5: return AVAudioSessionCategoryMultiRoute;
         default: return AVAudioSessionCategoryPlayback;
     }
 }
 
 - (NSNumber *)categoryToFlutter:(AVAudioSessionCategory)category {
     if ([category isEqualToString:AVAudioSessionCategoryAmbient]) return @0;
+    if ([category isEqualToString:AVAudioSessionCategorySoloAmbient]) return @1;
     if ([category isEqualToString:AVAudioSessionCategoryPlayback]) return @2;
+    #if TARGET_OS_IOS
+    if ([category isEqualToString:AVAudioSessionCategoryRecord]) return @3;
+    if ([category isEqualToString:AVAudioSessionCategoryPlayAndRecord]) return @4;
+    #endif
+    if ([category isEqualToString:AVAudioSessionCategoryMultiRoute]) return @5;
     return @2; // Default to Playback
-}
-
-- (AVAudioSessionMode)flutterToMode:(NSNumber *)modeIndex {
-    switch (modeIndex.integerValue) {
-        case 0: return AVAudioSessionModeDefault;
-        case 3: return AVAudioSessionModeMoviePlayback;
-        default: return AVAudioSessionModeDefault;
-    }
-}
-
-- (NSNumber *)modeToFlutter:(AVAudioSessionMode)mode {
-    if ([mode isEqualToString:AVAudioSessionModeDefault]) return @0;
-    if ([mode isEqualToString:AVAudioSessionModeMoviePlayback]) return @3;
-    return @0; // Default
-}
-
-- (NSArray *)describePortList:(NSArray<AVAudioSessionPortDescription *> *)ports {
-    NSMutableArray *portDescriptions = [NSMutableArray array];
-    for (AVAudioSessionPortDescription *port in ports) {
-        [portDescriptions addObject:@{
-            @"portName": port.portName,
-            @"portType": [self portTypeToString:port.portType],
-        }];
-    }
-    return portDescriptions;
-}
-
-- (NSString *)portTypeToString:(AVAudioSessionPort)portType {
-    if ([portType isEqualToString:AVAudioSessionPortHDMI]) return @"HDMI";
-    if ([portType isEqualToString:AVAudioSessionPortBuiltInSpeaker]) return @"BuiltInSpeaker";
-    return @"Unknown";
-}
-
-- (void)sendError:(NSError *)error result:(FlutterResult)result {
-    FlutterError *flutterError = [FlutterError errorWithCode:[NSString stringWithFormat:@"%ld", (long)error.code]
-                                                    message:error.localizedDescription
-                                                    details:nil];
-    result(flutterError);
-}
-
-- (void)invokeMethod:(NSString *)method arguments:(id)arguments {
-    [_channel invokeMethod:method arguments:arguments];
 }
 
 - (void)audioInterrupt:(NSNotification *)notification {
@@ -174,6 +120,13 @@
         BOOL shouldResume = (interruptionOption == AVAudioSessionInterruptionOptionShouldResume);
         [self invokeMethod:@"onInterruptionEvent" arguments:@[@1, @(shouldResume)]];
     }
+    
+    #if TARGET_OS_IOS
+    if (@available(iOS 14.5, *)) {
+        NSNumber *interruptionReason = interruptionDict[AVAudioSessionInterruptionReasonKey];
+        // Handle interruption reason
+    }
+    #endif
 }
 
 - (void)routeChange:(NSNotification *)notification {
