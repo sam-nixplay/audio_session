@@ -1,6 +1,12 @@
 #import "DarwinAudioSession.h"
 #import <AVFoundation/AVFoundation.h>
 
+#if TARGET_OS_TV
+#define AUDIO_SESSION_MICROPHONE 0
+#else
+#define AUDIO_SESSION_MICROPHONE 1
+#endif
+
 static NSHashTable<DarwinAudioSession *> *sessions = nil;
 
 @implementation DarwinAudioSession {
@@ -61,9 +67,17 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     } else if ([@"setActive" isEqualToString:call.method]) {
         [self setActive:args result:result];
     } else if ([@"getRecordPermission" isEqualToString:call.method]) {
+        #if AUDIO_SESSION_MICROPHONE
         [self getRecordPermission:args result:result];
+        #else
+        result(FlutterMethodNotImplemented);
+        #endif
     } else if ([@"requestRecordPermission" isEqualToString:call.method]) {
+        #if AUDIO_SESSION_MICROPHONE
         [self requestRecordPermission:args result:result];
+        #else
+        result(FlutterMethodNotImplemented);
+        #endif
     } else if ([@"isOtherAudioPlaying" isEqualToString:call.method]) {
         [self isOtherAudioPlaying:args result:result];
     } else if ([@"getSecondaryAudioShouldBeSilencedHint" isEqualToString:call.method]) {
@@ -77,11 +91,19 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     } else if ([@"overrideOutputAudioPort" isEqualToString:call.method]) {
         [self overrideOutputAudioPort:args result:result];
     } else if ([@"setPreferredInput" isEqualToString:call.method]) {
+        #if !TARGET_OS_TV
         [self setPreferredInput:args result:result];
+        #else
+        result(FlutterMethodNotImplemented);
+        #endif
     } else if ([@"getCurrentRoute" isEqualToString:call.method]) {
         [self getCurrentRoute:args result:result];
     } else if ([@"getAvailableInputs" isEqualToString:call.method]) {
+        #if !TARGET_OS_TV
         [self getAvailableInputs:args result:result];
+        #else
+        result(FlutterMethodNotImplemented);
+        #endif
     } else if ([@"getInputLatency" isEqualToString:call.method]) {
         [self getInputLatency:args result:result];
     } else if ([@"getOutputLatency" isEqualToString:call.method]) {
@@ -110,7 +132,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     if (options == (id)[NSNull null]) options = @(0);
     if (policyIndex == (id)[NSNull null]) {
         // Set the category, mode and options depending on the available API
-        if (@available(iOS 10.0, *)) {
+        if (@available(iOS 10.0, tvOS 10.0, *)) {
             status = [[AVAudioSession sharedInstance] setCategory:category mode:mode options:options.integerValue error:&error];
         } else {
             status = [[AVAudioSession sharedInstance] setCategory:category withOptions:options.integerValue error:&error];
@@ -120,10 +142,10 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
         }
     } else {
         // Set the category, mode, options and policy depending on the available API
-        if (@available(iOS 11.0, *)) {
+        if (@available(iOS 11.0, tvOS 11.0, *)) {
             AVAudioSessionRouteSharingPolicy policy = [self flutterToPolicy:policyIndex];
             status = [[AVAudioSession sharedInstance] setCategory:category mode:mode routeSharingPolicy:policy options:options.integerValue error:&error];
-        } else if (@available(iOS 10.0, *)) {
+        } else if (@available(iOS 10.0, tvOS 10.0, *)) {
             status = [[AVAudioSession sharedInstance] setCategory:category mode:mode options:options.integerValue error:&error];
         } else {
             status = [[AVAudioSession sharedInstance] setCategory:category withOptions:options.integerValue error:&error];
@@ -140,7 +162,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (void)getAvailableCategories:(NSArray *)args result:(FlutterResult)result {
-    if (@available(iOS 9.0, *)) {
+    if (@available(iOS 9.0, tvOS 9.0, *)) {
         NSArray *categories = [[AVAudioSession sharedInstance] availableCategories];
         NSMutableArray *flutterCategories = [NSMutableArray new];
         for (int i = 0; i < categories.count; i++) {
@@ -173,7 +195,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (void)getAvailableModes:(NSArray *)args result:(FlutterResult)result {
-    if (@available(iOS 9.0, *)) {
+    if (@available(iOS 9.0, tvOS 9.0, *)) {
         NSArray *modes = [[AVAudioSession sharedInstance] availableModes];
         NSMutableArray *flutterModes = [NSMutableArray new];
         for (int i = 0; i < modes.count; i++) {
@@ -186,7 +208,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (void)getRouteSharingPolicy:(NSArray *)args result:(FlutterResult)result {
-    if (@available(iOS 11.0, *)) {
+    if (@available(iOS 11.0, tvOS 11.0, *)) {
         AVAudioSessionRouteSharingPolicy policy = [[AVAudioSession sharedInstance] routeSharingPolicy];
         result([self policyToFlutter:policy]);
     } else {
@@ -218,23 +240,17 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     });
 }
 
-- (void)getRecordPermission:(NSArray *)args result:(FlutterResult)result {
 #if AUDIO_SESSION_MICROPHONE
+- (void)getRecordPermission:(NSArray *)args result:(FlutterResult)result {
     result([self recordPermissionToFlutter:[[AVAudioSession sharedInstance] recordPermission]]);
-#else
-    result(FlutterMethodNotImplemented);
-#endif
 }
 
 - (void)requestRecordPermission:(NSArray *)args result:(FlutterResult)result {
-#if AUDIO_SESSION_MICROPHONE
     [[AVAudioSession sharedInstance] requestRecordPermission:^(BOOL granted) {
         result(@(granted));
     }];
-#else
-    result(FlutterMethodNotImplemented);
-#endif
 }
+#endif
 
 - (void)isOtherAudioPlaying:(NSArray *)args result:(FlutterResult)result {
     result(@([[AVAudioSession sharedInstance] isOtherAudioPlaying]));
@@ -245,7 +261,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (void)getAllowHapticsAndSystemSoundsDuringRecording:(NSArray *)args result:(FlutterResult)result {
-    if (@available(iOS 13.0, *)) {
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
         result(@([[AVAudioSession sharedInstance] allowHapticsAndSystemSoundsDuringRecording]));
     } else {
         result(@(NO));
@@ -253,7 +269,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (void)setAllowHapticsAndSystemSoundsDuringRecording:(NSArray *)args result:(FlutterResult)result {
-    if (@available(iOS 13.0, *)) {
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
         NSError *error = nil;
         [[AVAudioSession sharedInstance] setAllowHapticsAndSystemSoundsDuringRecording:[args[0] boolValue] error:&error];
         if (error) {
@@ -267,7 +283,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (void)getPromptStyle:(NSArray *)args result:(FlutterResult)result {
-    if (@available(iOS 13.0, *)) {
+    if (@available(iOS 13.0, tvOS 13.0, *)) {
         result([self promptStyleToFlutter:[[AVAudioSession sharedInstance] promptStyle]]);
     } else {
         result(nil);
@@ -284,7 +300,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 
 - (NSDictionary *)encodePort:(AVAudioSessionPortDescription *)port {
     BOOL hasHardwareVoiceCallProcessing = NO;
-    if (@available(iOS 10.0, *)) {
+    if (@available(iOS 10.0, tvOS 10.0, *)) {
         hasHardwareVoiceCallProcessing = port.hasHardwareVoiceCallProcessing;
     }
     return @{
@@ -359,7 +375,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 
 - (NSNumber *)encodePolarPattern:(AVAudioSessionPolarPattern)polarPattern {
     if (!polarPattern) return (id)[NSNull null];
-    if (@available(iOS 14.0, *)) {
+    if (@available(iOS 14.0, tvOS 14.0, *)) {
         if ([polarPattern isEqualToString:AVAudioSessionPolarPatternStereo]) {
             return @(0);
         }
@@ -396,7 +412,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 
 - (NSNumber *)encodePortType:(AVAudioSessionPort)portType {
     if (!portType) return (id)[NSNull null];
-    if (@available(iOS 14.0, *)) {
+    if (@available(iOS 14.0, tvOS 14.0, *)) {
         NSDictionary *map = @{
             AVAudioSessionPortAVB: @(11),      
             AVAudioSessionPortDisplayPort: @(13),              
@@ -436,6 +452,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     }
 }
 
+#if !TARGET_OS_TV
 - (void)setPreferredInput:(NSArray *)args result:(FlutterResult)result {
     NSError *error = nil;
     [[AVAudioSession sharedInstance] setPreferredInput:[self decodePort:args[0]] error:&error];
@@ -445,6 +462,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
         result(nil);
     }
 }
+#endif
 
 - (AVAudioSessionPortOverride)decodePortOverride:(NSNumber *)portOverrideIndex {
     if (portOverrideIndex == (id)[NSNull null]) return AVAudioSessionPortOverrideNone;
@@ -464,9 +482,11 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     result(rawRoute);
 }
 
+#if !TARGET_OS_TV
 - (void)getAvailableInputs:(NSArray *)args result:(FlutterResult)result {
     result([self encodePortList:[[AVAudioSession sharedInstance] availableInputs]]);
 }
+#endif
 
 - (void)getInputLatency:(NSArray *)args result:(FlutterResult)result {
     result(@((long long)([[AVAudioSession sharedInstance] inputLatency] * 1000000.0)));
@@ -483,10 +503,10 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
             case 0: category = AVAudioSessionCategoryAmbient; break;
             case 1: category = AVAudioSessionCategorySoloAmbient; break;
             case 2: category = AVAudioSessionCategoryPlayback; break;
-#if AUDIO_SESSION_MICROPHONE
+            #if AUDIO_SESSION_MICROPHONE
             case 3: category = AVAudioSessionCategoryRecord; break;
             case 4: category = AVAudioSessionCategoryPlayAndRecord; break;
-#endif
+            #endif
             case 5: category = AVAudioSessionCategoryMultiRoute; break;
         }
     }
@@ -497,10 +517,10 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     if (category == AVAudioSessionCategoryAmbient) return @(0);
     else if (category == AVAudioSessionCategorySoloAmbient) return @(1);
     else if (category == AVAudioSessionCategoryPlayback) return @(2);
-#if AUDIO_SESSION_MICROPHONE
+    #if AUDIO_SESSION_MICROPHONE
     else if (category == AVAudioSessionCategoryRecord) return @(3);
     else if (category == AVAudioSessionCategoryPlayAndRecord) return @(4);
-#endif
+    #endif
     else return @(5);
 }
 
@@ -513,7 +533,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
             case 2: mode = AVAudioSessionModeMeasurement; break;
             case 3: mode = AVAudioSessionModeMoviePlayback; break;
             case 4:
-                if (@available(iOS 9.0, *)) {
+                if (@available(iOS 9.0, tvOS 9.0, *)) {
                     mode = AVAudioSessionModeSpokenAudio;
                 } else {
                     mode = AVAudioSessionModeDefault;
@@ -523,7 +543,7 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
             case 6: mode = AVAudioSessionModeVideoRecording; break;
             case 7: mode = AVAudioSessionModeVoiceChat; break;
             case 8:
-                if (@available(iOS 12.0, *)) {
+                if (@available(iOS 12.0, tvOS 12.0, *)) {
                     mode = AVAudioSessionModeVoicePrompt;
                 } else {
                     mode = AVAudioSessionModeDefault;
@@ -535,9 +555,9 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (NSObject *)modeToFlutter:(NSString *)mode {
-    if (@available(iOS 9.0, *)) {
+    if (@available(iOS 9.0, tvOS 9.0, *)) {
         if (mode == AVAudioSessionModeSpokenAudio) return @(4);
-        if (@available(iOS 12.0, *)) {
+        if (@available(iOS 12.0, tvOS 12.0, *)) {
             if (mode == AVAudioSessionModeVoicePrompt) return @(8);
         }
     }
@@ -553,19 +573,19 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 
 - (NSUInteger)flutterToPolicy:(NSNumber *)policyIndex {
     NSUInteger policy = 0;
-    if (@available(iOS 11.0, *)) {
+    if (@available(iOS 11.0, tvOS 11.0, *)) {
         if (policyIndex != (id)[NSNull null]) {
             switch (policyIndex.integerValue) {
                 case 0: policy = AVAudioSessionRouteSharingPolicyDefault; break;
                 case 1:
-                    if (@available(iOS 13.0, *)) {
+                    if (@available(iOS 13.0, tvOS 13.0, *)) {
                         policy = AVAudioSessionRouteSharingPolicyLongFormAudio;
                     } else {
                         policy = AVAudioSessionRouteSharingPolicyDefault;
                     }
                     break;
                 case 2:
-                    if (@available(iOS 13.0, *)) {
+                    if (@available(iOS 13.0, tvOS 13.0, *)) {
                         policy = AVAudioSessionRouteSharingPolicyLongFormVideo;
                     } else {
                         policy = AVAudioSessionRouteSharingPolicyDefault;
@@ -579,8 +599,8 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (NSObject *)policyToFlutter:(NSUInteger)policy {
-    if (@available(iOS 11.0, *)) {
-        if (@available(iOS 13.0, *)) {
+    if (@available(iOS 11.0, tvOS 11.0, *)) {
+        if (@available(iOS 13.0, tvOS 13.0, *)) {
             if (policy == AVAudioSessionRouteSharingPolicyLongFormAudio) return @(1);
             else if (policy == AVAudioSessionRouteSharingPolicyLongFormVideo) return @(2);
         }
@@ -619,19 +639,18 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     else return @(0);
 }
 
-
-- (void) sendError:(NSError *)error result:(FlutterResult)result {
+- (void)sendError:(NSError *)error result:(FlutterResult)result {
     FlutterError *flutterError = [FlutterError errorWithCode:[NSString stringWithFormat:@"%d", (int)error.code]
-                                                        message:error.localizedDescription
-                                                        details:nil];
+                                                    message:error.localizedDescription
+                                                    details:nil];
     result(flutterError);
 }
 
-- (void) audioInterrupt:(NSNotification*)notification {
+- (void)audioInterrupt:(NSNotification*)notification {
     NSNumber *interruptionType = (NSNumber*)[notification.userInfo valueForKey:AVAudioSessionInterruptionTypeKey];
 
     NSNumber *wasSuspended = nil;
-    if (@available(iOS 10.3, *)) {
+    if (@available(iOS 10.3, tvOS 10.3, *)) {
         wasSuspended = [notification.userInfo valueForKey:AVAudioSessionInterruptionWasSuspendedKey];
     }
     if (wasSuspended == nil) {
@@ -657,35 +676,35 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     }
 }
 
-- (void) routeChange:(NSNotification*)notification {
+- (void)routeChange:(NSNotification*)notification {
     NSNumber *routeChangeReasonType = (NSNumber*)[notification.userInfo valueForKey:AVAudioSessionRouteChangeReasonKey];
     //NSLog(@"routeChange detected");
     [self invokeMethod:@"onRouteChange" arguments:@[@([routeChangeReasonType integerValue])]];
 }
 
-- (void) silenceSecondaryAudio:(NSNotification*)notification {
+- (void)silenceSecondaryAudio:(NSNotification*)notification {
     NSNumber *silenceSecondaryType = (NSNumber*)[notification.userInfo valueForKey:AVAudioSessionSilenceSecondaryAudioHintTypeKey];
     //NSLog(@"silenceSecondaryAudioHint detected");
     [self invokeMethod:@"onSilenceSecondaryAudioHint" arguments:@[@([silenceSecondaryType integerValue])]];
 }
 
-- (void) mediaServicesLost:(NSNotification*)notification {
+- (void)mediaServicesLost:(NSNotification*)notification {
     //NSLog(@"mediaServicesLost detected");
     [self invokeMethod:@"onMediaServicesWereLost" arguments:nil];
 }
 
-- (void) mediaServicesReset:(NSNotification*)notification {
+- (void)mediaServicesReset:(NSNotification*)notification {
     //NSLog(@"mediaServicesReset detected");
     [self invokeMethod:@"onMediaServicesWereReset" arguments:nil];
 }
 
-- (void) invokeMethod:(NSString *)method arguments:(id _Nullable)arguments {
+- (void)invokeMethod:(NSString *)method arguments:(id _Nullable)arguments {
     for (DarwinAudioSession *session in sessions) {
         [session.channel invokeMethod:method arguments:arguments];
     }
 }
 
-- (void) dealloc {
+- (void)dealloc {
     if (sessions.allObjects.count == 0) {
         //NSLog(@"removing notification observers");
         [[NSNotificationCenter defaultCenter] removeObserver:self];

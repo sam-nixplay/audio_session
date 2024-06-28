@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:rxdart/rxdart.dart';
 
+const tvMode = String.fromEnvironment('TV_MODE');
+final bool _isTvOS = Platform.isIOS && tvMode == 'ON';
+
 /// If you test any feature listed as UNTESTED, consider sharing whether it
 /// works on GitHub.
 class AVAudioSession {
@@ -22,8 +25,9 @@ class AVAudioSession {
   final _mediaServicesWereResetSubject = PublishSubject<void>();
 
   factory AVAudioSession() {
-    if (kIsWeb || !Platform.isIOS) {
-      throw Exception('AVAudioSession is supported only on iOS');
+    if (kIsWeb || (!Platform.isIOS && !Platform.isMacOS)) {
+      throw Exception(
+          'AVAudioSession is supported only on Darwin platforms (iOS, iPadOS, tvOS)');
     }
     return _instance ??= AVAudioSession._();
   }
@@ -97,9 +101,16 @@ class AVAudioSession {
     AVAudioSessionCategoryOptions? options,
     AVAudioSessionMode? mode,
     AVAudioSessionRouteSharingPolicy? policy,
-  ]) =>
-      _channel.invokeMethod('setCategory',
-          [category?.index, options?.value, mode?.index, policy?.index]);
+  ]) {
+    if (_isTvOS &&
+        (category == AVAudioSessionCategory.record ||
+            category == AVAudioSessionCategory.playAndRecord)) {
+      throw UnsupportedError(
+          'Record and PlayAndRecord categories are not supported on tvOS');
+    }
+    return _channel.invokeMethod('setCategory',
+        [category?.index, options?.value, mode?.index, policy?.index]);
+  }
 
   /// (UNTESTED)
   Future<List<AVAudioSessionCategory>> get availableCategories async =>
@@ -135,9 +146,6 @@ class AVAudioSession {
 
   /// (UNTESTED)
   Future<AVAudioSessionRouteSharingPolicy?> get routeSharingPolicy async {
-    // TODO: Use this code without the '?' once a Dart bug is fixed.
-    // (similar instances occur elsewhere)
-    //final index = await _channel.invokeMethod<int>('getRouteSharingPolicy');
     final index = await _channel.invokeMethod<int?>('getRouteSharingPolicy');
     return index == null
         ? null
@@ -152,14 +160,21 @@ class AVAudioSession {
 
   /// (UNTESTED)
   Future<AVAudioSessionRecordPermission> get recordPermission async {
+    if (_isTvOS) {
+      throw UnsupportedError('Record permission is not available on tvOS');
+    }
     final index = (await (_channel.invokeMethod<int>('getRecordPermission')))!;
     return decodeEnum(AVAudioSessionRecordPermission.values, index,
         defaultValue: AVAudioSessionRecordPermission.undetermined);
   }
 
   /// (UNTESTED)
-  Future<bool> requestRecordPermission() async =>
-      (await _channel.invokeMethod<bool>('requestRecordPermission'))!;
+  Future<bool> requestRecordPermission() async {
+    if (_isTvOS) {
+      throw UnsupportedError('Record permission is not available on tvOS');
+    }
+    return (await _channel.invokeMethod<bool>('requestRecordPermission'))!;
+  }
 
   Future<bool> get isOtherAudioPlaying async =>
       (await _channel.invokeMethod<bool>('isOtherAudioPlaying'))!;
@@ -179,9 +194,6 @@ class AVAudioSession {
 
   /// (UNTESTED)
   Future<AVAudioSessionPromptStyle?> get promptStyle async {
-    // TODO: Use this code without the '?' once a Dart bug is fixed.
-    // (similar instances occur elsewhere)
-    //final index = await _channel.invokeMethod<int>('getPromptStyle');
     final index = await _channel.invokeMethod<int?>('getPromptStyle');
     return index == null
         ? null
@@ -195,116 +207,27 @@ class AVAudioSession {
   }
 
   Future<Set<AVAudioSessionPortDescription>> get availableInputs async {
+    if (_isTvOS) {
+      return <AVAudioSessionPortDescription>{};
+    }
     return (await _channel.invokeListMethod<dynamic>('getAvailableInputs'))!
         .map((dynamic raw) => AVAudioSessionPortDescription._fromMap(
             _channel, (raw as Map<dynamic, dynamic>).cast<String, dynamic>()))
         .toSet();
   }
 
-  //Future<AVAudioSessionPortDescription> get preferredInput {
-  //  return null;
-  //}
-
   /// (UNTESTED)
-  Future<void> setPreferredInput(AVAudioSessionPortDescription input) =>
-      _channel.invokeMethod('setPreferredInput', [input._toMap()]);
-
-  //Future<AVAudioSessionDataSourceDescription> get inputDataSource async {
-  //  return null;
-  //}
-
-  //Future<List<AVAudioSessionDataSourceDescription>> get inputDataSources async {
-  //  return null;
-  //}
-
-  //Future<void> setInputDataSource(
-  //    AVAudioSessionDataSourceDescription input) async {}
-
-  //Future<List<AVAudioSessionDataSourceDescription>>
-  //    get outputDataSources async {
-  //  return null;
-  //}
-
-  //Future<AVAudioSessionDataSourceDescription> get outputDataSource async {
-  //  return null;
-  //}
-
-  //Future<void> setOutputDataSource(
-  //    AVAudioSessionDataSourceDescription output) async {}
+  Future<void> setPreferredInput(AVAudioSessionPortDescription input) {
+    if (_isTvOS) {
+      throw UnsupportedError('setPreferredInput is not available on tvOS');
+    }
+    return _channel.invokeMethod('setPreferredInput', [input._toMap()]);
+  }
 
   /// (UNTESTED)
   Future<void> overrideOutputAudioPort(
           AVAudioSessionPortOverride portOverride) =>
       _channel.invokeMethod('overrideOutputAudioPort', [portOverride.index]);
-
-  //Future<AVPreparePlaybackRouteResult>
-  //    prepareRouteSelectionForPlayback() async {
-  //  return null;
-  //}
-
-  //Future<AVAudioStereoOrientation> get inputOrientation async {
-  //  return null;
-  //}
-
-  //Future<AVAudioStereoOrientation> get preferredInputOrientation async {
-  //  return null;
-  //}
-
-  //Future<void> setPreferredInputOrientation(
-  //    AVAudioStereoOrientation orientation) async {}
-
-  //Future<int> get inputNumberOfChannels async {
-  //  return 1;
-  //}
-
-  //Future<int> get maximumInputNumberOfChannels async {
-  //  return 2;
-  //}
-
-  //Future<int> get preferredInputNumberOfChannels async {
-  //  return 1;
-  //}
-
-  //Future<void> setPreferredInputNumberOfChannels(int count) async {}
-
-  //Future<int> get outputNumberOfChannels async {
-  //  return 2;
-  //}
-
-  //Future<int> get maximumOutputNumberOfChannels async {
-  //  return 2;
-  //}
-
-  //Future<int> get preferredOutputNumberOfChannels async {
-  //  return 2;
-  //}
-
-  //Future<void> setPreferredOutputNumberOfChannels(int count) async {}
-
-  //Future<double> get inputGain async {
-  //  // TODO: key/value observing
-  //  return 0.5;
-  //}
-
-  //Future<bool> get inputGainSettable async {
-  //  return false;
-  //}
-
-  //Future<void> setInputGain(double gain) async {}
-
-  //Future<double> get outputVolume async {
-  //  return 1.0;
-  //}
-
-  //Future<double> get sampleRate async {
-  //  return 48000.0;
-  //}
-
-  //Future<double> get preferredSampleRate async {
-  //  return 48000.0;
-  //}
-
-  //Future<void> setPreferredSampleRate(double rate) async {}
 
   /// (UNTESTED)
   Future<Duration> get inputLatency async {
@@ -317,20 +240,6 @@ class AVAudioSession {
     return Duration(
         microseconds: (await _channel.invokeMethod<int>('getOutputLatency'))!);
   }
-
-  //Future<Duration> get ioBufferDuration async {
-  //  return Duration.zero;
-  //}
-
-  //Future<Duration> get preferredIoBufferDuration async {
-  //  return Duration.zero;
-  //}
-
-  //Future<void> setPreferredIoBufferDuration(Duration duration) async {}
-
-  //Future<bool> setAggregatedIoPreference(AVAudioSessionIOType type) async {
-  //  return true;
-  //}
 }
 
 /// The categories for [AVAudioSession].
@@ -338,8 +247,8 @@ enum AVAudioSessionCategory {
   ambient,
   soloAmbient,
   playback,
-  record,
-  playAndRecord,
+  record, // Not available on tvOS
+  playAndRecord, // Not available on tvOS
   multiRoute,
 }
 
@@ -537,8 +446,6 @@ class AVAudioSessionRouteDescription {
 }
 
 class AVAudioSessionPortDescription {
-  //MethodChannel _channel;
-  // TODO: https://developer.apple.com/documentation/avfoundation/avaudiosessionportdescription?language=objc
   final String portName;
   final AVAudioSessionPort portType;
   final List<AVAudioSessionChannelDescription> channels;
@@ -559,21 +466,10 @@ class AVAudioSessionPortDescription {
     required this.dataSources,
     required this.selectedDataSource,
     required AVAudioSessionDataSourceDescription? preferredDataSource,
-  }) : /*_channel = channel,*/
-        _preferredDataSource = preferredDataSource;
+  }) : _preferredDataSource = preferredDataSource;
 
   AVAudioSessionDataSourceDescription? get preferredDataSource =>
       _preferredDataSource;
-
-  //Future<bool> setPreferredDataSource(
-  //    AVAudioSessionDataSourceDescription dataSource) async {
-  //  final success = await _channel
-  //      ?.invokeMethod('setPreferredDataSource', [portName, dataSource]);
-  //  if (success) {
-  //    _preferredDataSource = dataSource;
-  //  }
-  //  return success;
-  //}
 
   static AVAudioSessionPortDescription _fromMap(
           MethodChannel channel, Map<String, dynamic> map) =>
@@ -668,8 +564,6 @@ class AVAudioSessionChannelDescription {
 }
 
 class AVAudioSessionDataSourceDescription {
-  // TODO: https://developer.apple.com/documentation/avfoundation/avaudiosessiondatasourcedescription?language=objc
-  //final MethodChannel _channel;
   final int id;
   final String name;
   final AVAudioSessionLocation? location;
@@ -687,21 +581,10 @@ class AVAudioSessionDataSourceDescription {
     required this.selectedPolarPattern,
     required this.supportedPolarPatterns,
     required AVAudioSessionPolarPattern? preferredPolarPattern,
-  }) : /*_channel = channel,*/
-        _preferredPolarPattern = preferredPolarPattern;
+  }) : _preferredPolarPattern = preferredPolarPattern;
 
   AVAudioSessionPolarPattern? get preferredPolarPattern =>
       _preferredPolarPattern;
-
-  //Future<bool> setPreferredPolarPattern(
-  //    AVAudioSessionPolarPattern pattern) async {
-  //  final success = await _channel
-  //      ?.invokeMethod('setPreferredPolarPattern', [name, pattern.index]);
-  //  if (success) {
-  //    _preferredPolarPattern = pattern;
-  //  }
-  //  return success;
-  //}
 
   static AVAudioSessionDataSourceDescription _fromMap(
           MethodChannel channel, Map<String, dynamic> map) =>
@@ -760,22 +643,3 @@ enum AVAudioSessionPolarPattern {
 }
 
 enum AVAudioSessionPortOverride { none, speaker }
-
-//class AVPreparePlaybackRouteResult {
-//  final bool shouldStartPlayback;
-//  final AVAudioSessionRouteSelection routeSelection;
-//
-//  AVPreparePlaybackRouteResult(this.shouldStartPlayback, this.routeSelection);
-//}
-//
-//enum AVAudioSessionRouteSelection { none, local, externalSelection }
-//
-//enum AVAudioStereoOrientation {
-//  none,
-//  portrait,
-//  portraitUpsideDown,
-//  landscapeLeft,
-//  landscapeRight,
-//}
-//
-//enum AVAudioSessionIOType { notSpecified, aggregated }

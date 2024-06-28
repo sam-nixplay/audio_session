@@ -4,4 +4,6 @@
 
 @property (readonly, nonatomic) FlutterMethodChannel *channel;
 
++ (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar;
+
 @end

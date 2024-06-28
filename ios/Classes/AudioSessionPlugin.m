@@ -43,8 +43,22 @@ static NSHashTable<AudioSessionPlugin *> *plugins = nil;
         result(nil);
     } else if ([@"getConfiguration" isEqualToString:call.method]) {
         result(configuration);
-    } else {
+    } else if ([@"getRecordPermission" isEqualToString:call.method] ||
+               [@"requestRecordPermission" isEqualToString:call.method]) {
+        #if AUDIO_SESSION_MICROPHONE
+        [_darwinAudioSession handleMethodCall:call result:result];
+        #else
         result(FlutterMethodNotImplemented);
+        #endif
+    } else if ([@"setPreferredInput" isEqualToString:call.method] ||
+               [@"getAvailableInputs" isEqualToString:call.method]) {
+        #if !TARGET_OS_TV
+        [_darwinAudioSession handleMethodCall:call result:result];
+        #else
+        result(FlutterMethodNotImplemented);
+        #endif
+    } else {
+        [_darwinAudioSession handleMethodCall:call result:result];
     }
 }
 
