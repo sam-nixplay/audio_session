@@ -12,6 +12,8 @@
 
 - (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar;
 
+- (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result;
+
 #if AUDIO_SESSION_MICROPHONE
 - (void)getRecordPermission:(NSArray *)args result:(FlutterResult)result;
 - (void)requestRecordPermission:(NSArray *)args result:(FlutterResult)result;
