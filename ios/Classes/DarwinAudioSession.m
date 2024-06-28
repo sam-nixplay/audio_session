@@ -374,12 +374,15 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 }
 
 - (NSNumber *)encodePolarPattern:(AVAudioSessionPolarPattern)polarPattern {
-    if (!polarPattern) return (id)[NSNull null];
-    if (@available(iOS 14.0, tvOS 14.0, *)) {
+    #if TARGET_OS_TV
+    // TVos doesn't support AVAudioSessionPolarPatternStereo
+    #else
+    if (@available(iOS 14.0, *)) {
         if ([polarPattern isEqualToString:AVAudioSessionPolarPatternStereo]) {
             return @(0);
         }
     }
+    #endif
     NSDictionary *map = @{
         AVAudioSessionPolarPatternCardioid: @(1),
         AVAudioSessionPolarPatternSubcardioid: @(2),
@@ -466,11 +469,16 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 
 - (AVAudioSessionPortOverride)decodePortOverride:(NSNumber *)portOverrideIndex {
     if (portOverrideIndex == (id)[NSNull null]) return AVAudioSessionPortOverrideNone;
-    switch (portOverrideIndex.integerValue) {
-        case 0: return AVAudioSessionPortOverrideNone;
-        case 1: return AVAudioSessionPortOverrideSpeaker;
-        default: return AVAudioSessionPortOverrideNone;
-    }
+    #if TARGET_OS_TV
+        // On tvOS, only AVAudioSessionPortOverrideNone is supported
+        return AVAudioSessionPortOverrideNone;
+    #else
+        switch (portOverrideIndex.integerValue) {
+            case 0: return AVAudioSessionPortOverrideNone;
+            case 1: return AVAudioSessionPortOverrideSpeaker;
+            default: return AVAudioSessionPortOverrideNone;
+        }
+    #endif
 }
 
 - (void)getCurrentRoute:(NSArray *)args result:(FlutterResult)result {
@@ -576,7 +584,9 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
     if (@available(iOS 11.0, tvOS 11.0, *)) {
         if (policyIndex != (id)[NSNull null]) {
             switch (policyIndex.integerValue) {
-                case 0: policy = AVAudioSessionRouteSharingPolicyDefault; break;
+                case 0:
+                    policy = AVAudioSessionRouteSharingPolicyDefault;
+                    break;
                 case 1:
                     if (@available(iOS 13.0, tvOS 13.0, *)) {
                         policy = AVAudioSessionRouteSharingPolicyLongFormAudio;
@@ -585,13 +595,22 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
                     }
                     break;
                 case 2:
-                    if (@available(iOS 13.0, tvOS 13.0, *)) {
+                    #if TARGET_OS_TV
+                    // LongFormVideo is not available on tvOS, use Default instead
+                    policy = AVAudioSessionRouteSharingPolicyDefault;
+                    #else
+                    if (@available(iOS 13.0, *)) {
                         policy = AVAudioSessionRouteSharingPolicyLongFormVideo;
                     } else {
                         policy = AVAudioSessionRouteSharingPolicyDefault;
                     }
+                    #endif
                     break;
-                case 3: policy = AVAudioSessionRouteSharingPolicyIndependent; break;
+                case 3:
+                    policy = AVAudioSessionRouteSharingPolicyIndependent;
+                    break;
+                default:
+                    policy = AVAudioSessionRouteSharingPolicyDefault;
             }
         }
     }
@@ -601,11 +620,23 @@ static NSHashTable<DarwinAudioSession *> *sessions = nil;
 - (NSObject *)policyToFlutter:(NSUInteger)policy {
     if (@available(iOS 11.0, tvOS 11.0, *)) {
         if (@available(iOS 13.0, tvOS 13.0, *)) {
-            if (policy == AVAudioSessionRouteSharingPolicyLongFormAudio) return @(1);
-            else if (policy == AVAudioSessionRouteSharingPolicyLongFormVideo) return @(2);
+            if (policy == AVAudioSessionRouteSharingPolicyLongFormAudio) {
+                return @(1);
+            }
+            #if !TARGET_OS_TV
+            else if (policy == AVAudioSessionRouteSharingPolicyLongFormVideo) {
+                return @(2);
+            }
+            #endif
         }
-        if (policy == AVAudioSessionRouteSharingPolicyDefault) return @(0);
-        else return @(3);
+        if (policy == AVAudioSessionRouteSharingPolicyDefault) {
+            return @(0);
+        }
+        else if (policy == AVAudioSessionRouteSharingPolicyIndependent) {
+            return @(3);
+        }
+        // If it's an unknown policy, return default
+        return @(0);
     } else {
         return (id)[NSNull null];
     }
